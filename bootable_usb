@@ -1,0 +1,37 @@
+#! /usr/bin/env bash
+
+function run_dd(){
+  su -c "dd if=$1 of=$2 status=progress bs=4M conv=fsync"
+}
+
+IMG="$1"
+DEV=/dev/$(basename "$2")
+MIME_TYPE=application/x-iso9660-image
+
+if [[ ! -f $IMG ]]; then
+  echo "Error: image is not set"
+  exit 1
+fi
+
+if [[ $(file --mime-type "${IMG}" | sed -r 's/.*: //') != "${MIME_TYPE}" ]]; then
+  echo "Error: image must be iso9660"
+  exit 2
+fi
+
+if [[ ! -b $DEV ]]; then
+  echo "Error: block device is not set"
+  exit 3
+fi
+
+echo "SOURCE: ${IMG}"
+echo "DEV:"
+lsblk "${DEV}"
+
+read -rp "Do you want to continue? [y/N] " ANSWER 
+
+if [[ $(echo -en "${ANSWER}" | grep -Ei '^y(es)?$') ]]; then
+  run_dd "${IMG}" "${DEV}"
+  wait
+fi
+
+exit 0
