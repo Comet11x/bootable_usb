@@ -52,11 +52,9 @@ function run_dd(){
   read -rp "Do you want to continue? [y/N] " ANSWER 
 
   if [[ $(echo -en "${ANSWER}" | grep -Ei '^y(es)?$') ]]; then
-    run_dd "${img}" "${dev}"
-    wait
+    su -c "dd if=$img of=$dev status=progress bs=4M conv=fsync"
   fi
 
-  su -c "dd if=$img of=$dev status=progress bs=4M conv=fsync"
 }
 
 
@@ -67,6 +65,7 @@ function main(){
   check_img "$img"
   check_device "$dev"
   run_dd "$img" "$dev"
+  wait
 }
 
 
