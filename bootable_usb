@@ -1,37 +1,75 @@
 #! /usr/bin/env bash
 
-function run_dd(){
-  su -c "dd if=$1 of=$2 status=progress bs=4M conv=fsync"
-}
-
 IMG="$1"
 DEV=/dev/$(basename "$2")
-MIME_TYPE=application/x-iso9660-image
+MIME_TYPES=(application/x-iso9660-image application/octet-stream)
 
-if [[ ! -f $IMG ]]; then
-  echo "Error: image is not set"
-  exit 1
-fi
 
-if [[ $(file --mime-type "${IMG}" | sed -r 's/.*: //') != "${MIME_TYPE}" ]]; then
-  echo "Error: image must be iso9660"
-  exit 2
-fi
+function check_img(){
+  local img=$1
+  local ok=false
+  if [[ ! -f $img ]]; then
+    echo "Error: image is not set"
+    exit 1
+  fi
+  for mime in "${MIME_TYPES[@]}"; do
+    if [[ $(file --mime-type "${img}" | sed -r 's/.*: //') == "${mime}" ]]; then
+      ok=true
+      break
+    fi
+  done
+  if [[ $ok == false ]]; then
+      echo "Error: image must be iso9660 or application/octet-stream"
+      exit 2
+  fi
+}
 
-if [[ ! -b $DEV ]]; then
-  echo "Error: block device is not set"
-  exit 3
-fi
 
-echo "SOURCE: ${IMG}"
-echo "DEV:"
-lsblk "${DEV}"
+function check_device(){
+  local dev=$1
+  if [[ ! -b $dev ]]; then
+    echo "Error: block device is not set"
+    exit 3
+  fi
+}
 
-read -rp "Do you want to continue? [y/N] " ANSWER 
 
-if [[ $(echo -en "${ANSWER}" | grep -Ei '^y(es)?$') ]]; then
-  run_dd "${IMG}" "${DEV}"
-  wait
-fi
+function print_info(){
+  local img=$1
+  local dev=$2
+  echo "SOURCE: ${img}"
+  echo "DEV:"
+  lsblk "${dev}"
+}
+
+
+function run_dd(){
+  local img=$1
+  local dev=$2
+
+  print_info "$img" "$dev"
+
+  read -rp "Do you want to continue? [y/N] " ANSWER 
+
+  if [[ $(echo -en "${ANSWER}" | grep -Ei '^y(es)?$') ]]; then
+    run_dd "${img}" "${dev}"
+    wait
+  fi
+
+  su -c "dd if=$img of=$dev status=progress bs=4M conv=fsync"
+}
+
+
+function main(){
+  local img=$1
+  local dev=$2
+
+  check_img "$img"
+  check_device "$dev"
+  run_dd "$img" "$dev"
+}
+
+
+main "$IMG"  "$DEV"
 
 exit 0
